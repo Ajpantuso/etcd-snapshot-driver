@@ -1,0 +1,96 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: etcd-snapshot-driver
+  namespace: etcd-snapshot-driver
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: etcd-snapshot-driver
+rules:
+  # PVC operations
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "create"]
+  # PV operations
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get", "list", "watch"]
+  # VolumeSnapshot operations
+  - apiGroups: ["snapshot.storage.k8s.io"]
+    resources: ["volumesnapshots", "volumesnapshotcontents"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  # VolumeGroupSnapshot operations
+  - apiGroups: ["groupsnapshot.storage.k8s.io"]
+    resources: ["volumegroupsnapshots", "volumegroupsnapshotcontents", "volumegroupsnapshotclasses"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  # Job operations
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list", "watch", "delete"]
+  # Pod operations (for discovery and log reading)
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  # Pod logs
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  # Secret operations (for credentials)
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list"]
+  # ConfigMap operations (for metadata)
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "create", "update", "patch", "watch"]
+  # Events
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: etcd-snapshot-driver
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: etcd-snapshot-driver
+subjects:
+  - kind: ServiceAccount
+    name: etcd-snapshot-driver
+    namespace: etcd-snapshot-driver
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: etcd-snapshot-executor
+  namespace: etcd-snapshot-driver
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: etcd-snapshot-executor
+  namespace: etcd-snapshot-driver
+rules:
+  # Minimal permissions for snapshot executor jobs
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["etcd-client-certs", "etcd-basic-auth"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: etcd-snapshot-executor
+  namespace: etcd-snapshot-driver
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: etcd-snapshot-executor
+subjects:
+  - kind: ServiceAccount
+    name: etcd-snapshot-executor
+    namespace: etcd-snapshot-driver

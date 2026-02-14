@@ -1,0 +1,6 @@
+apiVersion: groupsnapshot.storage.k8s.io/v1beta2
+kind: VolumeGroupSnapshotClass
+metadata:
+  name: etcd-group-snapshot-class
+driver: etcd-snapshot-driver
+deletionPolicy: Delete

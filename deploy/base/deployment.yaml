@@ -1,0 +1,156 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: etcd-snapshot-driver-config
+  namespace: etcd-snapshot-driver
+data:
+  config.yaml: |
+    snapshot_timeout: 300
+    storage_class: standard
+    discovery:
+      methods: ["label", "annotation", "statefulset"]
+      label_selector:
+        etcd.io/cluster: ""
+    logging:
+      level: info
+      format: json
+    metrics:
+      enabled: true
+      port: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: etcd-snapshot-driver
+  namespace: etcd-snapshot-driver
+  labels:
+    app: etcd-snapshot-driver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: etcd-snapshot-driver
+  template:
+    metadata:
+      labels:
+        app: etcd-snapshot-driver
+    spec:
+      serviceAccountName: etcd-snapshot-driver
+      securityContext:
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        # Main driver
+        - name: etcd-snapshot-driver
+          image: etcd-snapshot-driver:latest
+          imagePullPolicy: Always
+          args:
+            - "--csi-endpoint=unix:///var/lib/kubelet/plugins/etcd-snapshot-driver/csi.sock"
+            - "--log-level=info"
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          ports:
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65534
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - name: csi-socket
+              mountPath: /var/lib/kubelet/plugins/etcd-snapshot-driver
+            - name: config
+              mountPath: /etc/etcd-snapshot-driver
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+        # CSI Provisioner sidecar
+        - name: csi-provisioner
+          image: registry.k8s.io/sig-storage/csi-provisioner:v3.5.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--csi-address=unix:///var/lib/kubelet/plugins/etcd-snapshot-driver/csi.sock"
+            - "--feature-gates=Topology=true"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65534
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          volumeMounts:
+            - name: csi-socket
+              mountPath: /var/lib/kubelet/plugins/etcd-snapshot-driver
+        # CSI Snapshotter sidecar
+        - name: csi-snapshotter
+          image: registry.k8s.io/sig-storage/csi-snapshotter:v6.2.1
+          imagePullPolicy: IfNotPresent
+          args:
+          # TODO: Update this address to something like /var/lib/csi/sockets/csi.sock
+            - "--csi-address=unix:///var/lib/kubelet/plugins/etcd-snapshot-driver/csi.sock"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65534
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          volumeMounts:
+            - name: csi-socket
+              mountPath: /var/lib/kubelet/plugins/etcd-snapshot-driver
+      volumes:
+        - name: csi-socket
+          emptyDir: {}
+        - name: config
+          configMap:
+            name: etcd-snapshot-driver-config
+        - name: tmp
+          emptyDir: {}

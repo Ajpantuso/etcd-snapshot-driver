@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: etcd-snapshot-driver-config
+  namespace: etcd-snapshot-driver
+data:
+  config.yaml: |
+    snapshot_timeout: 180
+    storage_class: standard
+    discovery:
+      methods: ["label", "annotation", "statefulset"]
+      label_selector:
+        etcd.io/cluster: ""
+    logging:
+      level: debug
+      format: json
+    metrics:
+      enabled: true
+      port: 8080

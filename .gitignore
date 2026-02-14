@@ -1,0 +1,43 @@
+# Binaries
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Build output
+dist/
+vendor/
+
+# Go
+*.test
+*.out
+coverage.txt
+*.prof
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.local
+
+# Temporary files
+tmp/
+temp/
+
+# Nix
+.direnv/
+result
+result-*
+.envrc
+
+etcd-snapshot-driver

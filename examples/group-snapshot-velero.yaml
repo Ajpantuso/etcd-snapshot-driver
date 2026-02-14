@@ -1,0 +1,28 @@
+# Example VolumeGroupSnapshot for Velero integration
+# This demonstrates how Velero creates group snapshots for crash-consistent backups
+# of multiple ETCD volumes.
+#
+# Prerequisites:
+# 1. Install external-snapshotter CRDs
+# 2. Deploy snapshot-controller
+# 3. Install etcd-snapshot-driver with GroupController support
+# 4. Create VolumeGroupSnapshotClass (see deploy/base/volume-group-snapshot-class.yaml)
+#
+# Usage:
+# kubectl apply -f examples/group-snapshot-velero.yaml
+
+apiVersion: groupsnapshot.storage.k8s.io/v1beta2
+kind: VolumeGroupSnapshot
+metadata:
+  name: etcd-backup-group
+  namespace: etcd-system
+spec:
+  volumeGroupSnapshotClassName: etcd-group-snapshot-class
+  source:
+    # Label selector to group multiple ETCD PVCs for atomic snapshot
+    selector:
+      matchLabels:
+        # These labels should be applied to all PVCs that need to be snapshotted together
+        velero.io/backup-name: my-etcd-backup
+        app: etcd
+status: {}

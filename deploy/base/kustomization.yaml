@@ -1,0 +1,29 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: etcd-snapshot-driver-base
+
+# Namespace for all resources
+namespace: etcd-snapshot-driver
+
+# Common labels applied to all resources
+commonLabels:
+  app.kubernetes.io/name: etcd-snapshot-driver
+  app.kubernetes.io/component: csi-driver
+
+resources:
+  - namespace.yaml
+  - rbac.yaml
+  - csi-driver.yaml
+  - deployment.yaml
+  - volume-group-snapshot-class.yaml
+
+# Images to be customizable in overlays
+images:
+  - name: etcd-snapshot-driver
+    newTag: latest
+  - name: registry.k8s.io/sig-storage/csi-provisioner
+    newTag: v3.5.0
+  - name: registry.k8s.io/sig-storage/csi-snapshotter
+    newTag: v6.2.1
